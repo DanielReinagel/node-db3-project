@@ -1,7 +1,10 @@
+const db = require("../../data/db-config");
+
 function find() { // EXERCISE A
   /*
     1A- Study the SQL query below running it in SQLite Studio against `data/schemes.db3`.
     What happens if we change from a LEFT join to an INNER join?
+      It wouldn't include anything that didn't have any steps.
 
       SELECT
           sc.*,
@@ -15,6 +18,13 @@ function find() { // EXERCISE A
     2A- When you have a grasp on the query go ahead and build it in Knex.
     Return from this function the resulting dataset.
   */
+
+  return db("schemes as sc")
+    .select("sc.*")
+    .count("st.step_id as number_of_steps")
+    .leftJoin("steps as st", "sc.scheme_id", "st.scheme_id")
+    .groupBy("sc.scheme_id")
+    .orderBy("sc.scheme_id", "asc")
 }
 
 function findById(scheme_id) { // EXERCISE B
@@ -83,6 +93,18 @@ function findById(scheme_id) { // EXERCISE B
         "steps": []
       }
   */
+  return db("schemes as sc")
+    .leftJoin("steps as st", "sc.scheme_id", "st.scheme_id")
+    .where("sc.scheme_id", "=", scheme_id)
+    .select("sc.scheme_name", "st.*")
+    .orderBy("st.step_number", "asc")
+    .then(stepsArray => {
+      return {
+        scheme_id: parseInt(scheme_id),
+        scheme_name: stepsArray[0].scheme_name,
+        steps: stepsArray[0].step_id ? stepsArray.map(({step_id, step_number, instructions}) => {return {step_id, step_number, instructions}}) : []
+      }
+    })
 }
 
 function findSteps(scheme_id) { // EXERCISE C
@@ -106,20 +128,32 @@ function findSteps(scheme_id) { // EXERCISE C
         }
       ]
   */
+  
+  return db("schemes as sc")
+    .join("steps as st", "sc.scheme_id", "st.scheme_id")
+    .where("sc.scheme_id", "=", scheme_id)
+    .select("st.step_id", "st.step_number", "st.instructions", "sc.scheme_name")
+    .orderBy("st.step_number", "asc")
 }
 
 function add(scheme) { // EXERCISE D
   /*
     1D- This function creates a new scheme and resolves to _the newly created scheme_.
   */
+  return db("schemes")
+    .insert(scheme)
+    .then(scheme_idArray => {return {scheme_id: scheme_idArray[0], ...scheme}})
 }
 
-function addStep(scheme_id, step) { // EXERCISE E
+async function addStep(scheme_id, step) { // EXERCISE E
   /*
     1E- This function adds a step to the scheme with the given `scheme_id`
     and resolves to _all the steps_ belonging to the given `scheme_id`,
     including the newly created one.
   */
+  await db("steps")
+    .insert({...step, scheme_id});
+  return findSteps(scheme_id)
 }
 
 module.exports = {
